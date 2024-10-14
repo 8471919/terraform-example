@@ -87,6 +87,7 @@ gke:
           - asia-northeast3-b
           - asia-northeast3-c
 
+# k8s내부에서 gcp에서 제공하는 서비스를 사용할 수 있게 권한을 부여
 service_accounts:
   - account_id: monitoring
     workflow_identity:

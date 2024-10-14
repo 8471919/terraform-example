@@ -14,7 +14,7 @@ gcloud auth login
 gcloud projects list # project list 확인
 gcloud config set project <GCP PROJECT ID># project id 설정
 
-# service enable 하기
+# service enable 하기 (gcp의 api들을 사용가능하게 해준다)
 gcloud services enable compute.googleapis.com
 gcloud services enable container.googleapis.com
 gcloud services enable networkservices.googleapis.com
@@ -42,10 +42,61 @@ gcloud auth application-default login
 gcloud container clusters get-credentials demo --region asia-northeast3
 ```
 
+2-1. 여기서 오류가 난다면,
+
+```sh
+# google cloud sdk update
+gcloud components update
+
+# gke-gcloud-auth-plugin 설치
+gcloud components install gke-gcloud-auth-plugin
+
+```
+
 3. kubectl 명령어 입력해보기
 
 ```sh
-kubectl get pods
+kubectl get pods -A
+```
+
+4. k8s homepage에서 pod 기본 예제 가져오기
+
+5. pod 정보 확인
+
+```sh
+kubectl describe pods/nginx
+```
+
+6. yaml 추출
+
+```sh
+kubectl get pods nginx -o yaml
+```
+
+7. configmap, pvc 생성 후, deployment 생성
+
+```sh
+kubectl apply -f example/gcp/assets/demo/<object.yaml>
+```
+
+8. deployment log 확인
+
+```sh
+k logs k8s-setup-check-77c679d4d4-57z54 -f
+```
+
+9. service 생성
+
+10. port-forwarding
+
+```sh
+kubectl port-forward svc/k8s-setup-check-service 8080:8080
+```
+
+10. ip 확인
+
+```sh
+k get svc
 ```
 
 ## 참고 자료
@@ -53,6 +104,10 @@ kubectl get pods
 - https://www.googlecloudcommunity.com/gc/Workspace-Developer/Are-GCP-project-ID-and-numbers-sensitive/m-p/409804
 
 # Ingress
+
+- L7은 Ingress만 제공. Service는 L4만 가능하다.
+- 각 CSP에서 제공해주는 LB관련 리소스들이 있는데, 그런게 싫다하면 nginx ignress, traffic, cady?, 등을 사용할 수 있다.
+- external dns를 설치하면 ingress를 띄우면 바로 도메인에 연결가능하다. (assets/external-dns/gcp.yaml 확인)
 
 ## Nginx Ingress Controller
 
@@ -69,6 +124,11 @@ helm upgrade --install -f ./assets/ingress/ingress-nginx-values.yaml nginx-ingre
 ```
 
 ## Gke NEG 사용하기
+
+- ingress/ingress-nginx-values.yaml에서 neg를 검색해보자.
+- aws는 alb에다가 instance type의 ip를 붙이면 바로 pod ip를 붙여서 빠르게 통신할 수 있는데,
+- gcp 같은 경우는 neg를 통해 하면 속도가 빠르게 개선이된다.
+- network 테이블 관련 해서 공부하면 이유를 알 수 있음
 
 1. network endpoint groups 조회하기
 
@@ -119,9 +179,16 @@ helm repo update
 
 1. node-exporter 설치하기
 
+- k8s에 사용되는 node들에 대한 정보를 추출하기 위해 node exporter를 사용(demo set으로 생성됨. 노드당 하나씩 생성된다.)
+
 ```sh
 helm upgrade -i -n kube-system node-exporter prometheus-community/prometheus-node-exporter
 ```
+
+### kube state metric
+
+- cpu나 memory가 아니다. (이것들은 metric server를 설치해야 보인다. server[https://github.com/kubernetes-sigs/metrics-server])
+- k8s가 아닌, ec2에만 설치해서 사용하기도 한다.
 
 2. kube-state-metrics 설치하기
 
@@ -145,7 +212,11 @@ kubectl apply -f assets/metrics/clusterrole-binding.yaml
 
 5. Prometheus Operator CRD 설치하기
 
-```
+- k8s에 설치되는 리소스들은 기본적으로 `k api-resources` 명령을 통해 알 수 있다.
+- CRD를 설치한다는 것은 k api-resources에 등록해서 사용할 수 있게 한다는 뜻
+- 아래 명령을 입력하면 prometheus관련 api-resource들이 생성된다.
+
+```sh
 curl -L https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.74.0/stripped-down-crds.yaml | kubectl apply --server-side -f -
 ```
 
@@ -153,6 +224,8 @@ curl -L https://github.com/prometheus-operator/prometheus-operator/releases/down
 
 ```sh
 kubectl apply -f assets/metrics/operator.yaml
+
+k get pods -n monitoring
 ```
 
 7. Prometheus 설치하기
@@ -163,8 +236,26 @@ kubectl apply -f assets/metrics/prometheus.yaml
 
 8. ServiceMonitor 등록하기
 
+- service한테 api call을 해서 해당 서비스를 계속해서 모니터링하는 녀석
+
 ```sh
 kubectl apply -f assets/metrics/servicemonitor.yaml
+
+k get servicemonitors.monitoring.coreos.com -A
+```
+
+- 서비스 모니터가 정상동작하는 것을 확인하기 위해서는 프로메테우스 서버에 들어가면 된다.
+
+```sh
+k get pods -n monitoring
+
+k logs prometheus-operator-<uuid> -n monitoring -f
+k logs prometheus-server-<uuid> -n monitoring -f
+
+k get svc -n monitoring
+
+k port-forwarding -n monitoring svc/prometheus-server 9090:9090
+
 ```
 
 ## Tracing

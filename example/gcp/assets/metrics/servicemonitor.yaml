@@ -175,7 +175,7 @@ metadata:
 spec:
   endpoints:
     - honorLabels: true
-      port: http
+      port: http # port 번호가 아닌, port name을 입력한다.
   jobLabel: app.kubernetes.io/name
   selector:
     matchLabels:

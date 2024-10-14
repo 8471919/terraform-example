@@ -5,7 +5,7 @@ resource "google_compute_network" "this" {
 }
 
 resource "google_compute_subnetwork" "this" {
-  for_each      = { for subnet in var.config.subnets : subnet.name => subnet }
+  for_each      = { for subnet in var.config.subnets : subnet.name => subnet } # for each를 사용하지 않고 loop를 사용한다면 리소스가 삭제될 수 있다.
   name          = each.value.name
   ip_cidr_range = each.value.ip_cidr_range
   region        = each.value.region
@@ -20,6 +20,7 @@ resource "google_compute_subnetwork" "this" {
   }
 }
 
+# module은 하나밖에 만들지 않고, 이름을 여기다가 쓰지 않기 때문에 보통 this로 작성한다.
 resource "google_vpc_access_connector" "this" {
   count         = var.config.connector == null ? 0 : 1
   name          = "${var.config.name}-vpc-access-connector"
